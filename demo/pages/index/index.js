@@ -2,8 +2,10 @@ var Index = {
   template : `
 <div>
   <div>
+    <span style="float:right">server clock skew = {{ skew }}ms</span>
     <v-btn :loading="working" @click="send_sync()" class="primary">synchronous</v-btn>
     <v-btn :loading="working" @click="send_async()" class="primary">asynchronous</v-btn>
+    <v-btn :loading="working" @click="get_skew()" class="primary">get clock skew</v-btn>
   </div>
   <hr style="margin-bottom:20px;margin-top:20px;">
   <h2>Log</h2>
@@ -23,6 +25,9 @@ var Index = {
   computed: {
     messages : function() {
       return store.getters.logs;
+    },
+    skew : function() {
+      return store.getters.skew;
     }
   },
   methods: {
@@ -77,6 +82,58 @@ var Index = {
           self.working = false;
         }
       });
+    },
+    get_skew: function() {
+      this.working = true;
+      var self = this;
+
+      var offsets = [];
+      var counter = 0;
+      var maxTimes = 10;
+      var beforeTime = null;
+
+      // get average 
+      var mean = function(array) {
+        var sum = 0;
+        array.forEach(function (value) {
+          sum += value;
+        });
+        return sum/array.length;
+      }
+      function getter() {
+        beforeTime = Date.now();
+        $.ajax( {
+          url: "/api/time",
+          type: "get",
+          success: function(response) {
+            var now = Date.now(),
+                rtt = now - beforeTime,
+                serverTime = response.time - rtt/2,
+                offset = beforeTime - serverTime;
+            counter++;
+            offsets.push(offset)
+            if (counter < maxTimes) {
+              getter();
+            } else {
+              var averageOffset = mean(offsets);
+              console.log("average offset:" + averageOffset);
+              store.commit("skew", averageOffset);
+              self.working = false;
+            }
+          },
+          error: function(response) {
+            app.$notify({
+              group: "notifications",
+              title: "Could not adjust time...",
+              text:  response.responseText,
+              type:  "warn",
+              duration: 10000
+            });
+            self.working = false;
+          }
+        });
+      }
+      getter();
     }
   },
   data: function() {
@@ -104,19 +161,27 @@ app.sections.push({
 
 store.registerModule("Index", {
   state: {
-    log: []
+    log: [],
+    skew: 0
   },
   mutations: {
     log: function(state, msg) {
       now = Date.now()
       msg["log"]["commit"] = now;
+      msg["log"]["received"] = Math.round(msg["log"]["received"] + state.skew);
       msg["elapsed"] = now - msg["log"]["received"];
       state.log.unshift({ when: new Date(), body: msg });
+    },
+    skew: function(state, diff) {
+      state.skew = diff;
     }
   },
   getters: {
     logs: function(state) {
       return state.log;
+    },
+    skew: function(state) {
+      return state.skew;
     }
   }
 });

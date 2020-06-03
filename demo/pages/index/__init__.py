@@ -65,3 +65,9 @@ class HandleASync(Resource):
     add_to_queue(msg)
 
 api.add_resource(HandleASync, "/api/handle/async")
+
+class Timestamp(Resource):
+  def get(self):
+    return { "time" : now() }
+
+api.add_resource(Timestamp, "/api/time")
