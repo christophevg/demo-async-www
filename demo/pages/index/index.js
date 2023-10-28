@@ -141,21 +141,15 @@ var Index = {
       working: false,
       isValid : true,
     }
-  }
+  },
+  navigation: {
+    icon:    "home",
+    text:    "Test",
+    path:    "/"
+  },
 };
 
-// add route and navigation entry
-
-router.addRoutes([
-  { path: '/', component: Index },
-])
-
-app.sections.push({
-  icon  : "home",
-  text  : "Index",
-  path  : "/"    
-});
-
+Navigation.add(Index);
 
 // set up page specific part in the store
 
